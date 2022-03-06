@@ -31,6 +31,10 @@ import org.springframework.lang.Nullable;
  * {@link BeanFactoryPostProcessor} to introspect and modify property values
  * and other bean metadata.
  *
+ * <p>
+ * BeanDefinition 描述了一个 bean 实例，它具有属性值、构造函数参数值以及具体实现提供的更多信息。
+ * 这只是一个最小的接口：主要目的是允许BeanFactoryPostProcessor内省和修改属性值和其他 bean 元数据
+ *
  * @author Juergen Hoeller
  * @author Rob Harrop
  * @since 19.03.2004
