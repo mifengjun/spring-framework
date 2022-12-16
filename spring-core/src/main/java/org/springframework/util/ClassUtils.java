@@ -16,7 +16,6 @@
 
 package org.springframework.util;
 
-import java.beans.Introspector;
 import java.io.Closeable;
 import java.io.Externalizable;
 import java.io.Serializable;
@@ -157,7 +156,7 @@ public abstract class ClassUtils {
 		Class<?>[] javaLanguageInterfaceArray = {Serializable.class, Externalizable.class,
 				Closeable.class, AutoCloseable.class, Cloneable.class, Comparable.class};
 		registerCommonClasses(javaLanguageInterfaceArray);
-		javaLanguageInterfaces = new HashSet<>(Arrays.asList(javaLanguageInterfaceArray));
+		javaLanguageInterfaces = Set.of(javaLanguageInterfaceArray);
 	}
 
 
@@ -832,14 +831,40 @@ public abstract class ClassUtils {
 	}
 
 	/**
+	 * Determine if the supplied class is a static class.
+	 * @return {@code true} if the supplied class is a static class
+	 * @since 6.0
+	 * @see Modifier#isStatic(int)
+	 * @see #isInnerClass(Class)
+	 */
+	public static boolean isStaticClass(Class<?> clazz) {
+		return Modifier.isStatic(clazz.getModifiers());
+	}
+
+	/**
 	 * Determine if the supplied class is an <em>inner class</em>,
 	 * i.e. a non-static member of an enclosing class.
 	 * @return {@code true} if the supplied class is an inner class
 	 * @since 5.0.5
 	 * @see Class#isMemberClass()
+	 * @see #isStaticClass(Class)
 	 */
 	public static boolean isInnerClass(Class<?> clazz) {
-		return (clazz.isMemberClass() && !Modifier.isStatic(clazz.getModifiers()));
+		return (clazz.isMemberClass() && !isStaticClass(clazz));
+	}
+
+	/**
+	 * Determine if the supplied {@link Class} is a JVM-generated implementation
+	 * class for a lambda expression or method reference.
+	 * <p>This method makes a best-effort attempt at determining this, based on
+	 * checks that work on modern, mainstream JVMs.
+	 * @param clazz the class to check
+	 * @return {@code true} if the class is a lambda implementation class
+	 * @since 5.3.19
+	 */
+	public static boolean isLambdaClass(Class<?> clazz) {
+		return (clazz.isSynthetic() && (clazz.getSuperclass() == Object.class) &&
+				(clazz.getInterfaces().length > 0) && clazz.getName().contains("$$Lambda"));
 	}
 
 	/**
@@ -971,13 +996,13 @@ public abstract class ClassUtils {
 	 * property format. Strips the outer class name in case of a nested class.
 	 * @param clazz the class
 	 * @return the short name rendered in a standard JavaBeans property format
-	 * @see java.beans.Introspector#decapitalize(String)
+	 * @see StringUtils#uncapitalizeAsProperty(String)
 	 */
 	public static String getShortNameAsProperty(Class<?> clazz) {
 		String shortName = getShortName(clazz);
 		int dotIndex = shortName.lastIndexOf(PACKAGE_SEPARATOR);
 		shortName = (dotIndex != -1 ? shortName.substring(dotIndex + 1) : shortName);
-		return Introspector.decapitalize(shortName);
+		return StringUtils.uncapitalizeAsProperty(shortName);
 	}
 
 	/**
@@ -1244,7 +1269,7 @@ public abstract class ClassUtils {
 	 * target class may be {@code DefaultFoo}. In this case, the method may be
 	 * {@code DefaultFoo.bar()}. This enables attributes on that method to be found.
 	 * <p><b>NOTE:</b> In contrast to {@link org.springframework.aop.support.AopUtils#getMostSpecificMethod},
-	 * this method does <i>not</i> resolve Java 5 bridge methods automatically.
+	 * this method does <i>not</i> resolve bridge methods automatically.
 	 * Call {@link org.springframework.core.BridgeMethodResolver#findBridgedMethod}
 	 * if bridge method resolution is desirable (e.g. for obtaining metadata from
 	 * the original method definition).

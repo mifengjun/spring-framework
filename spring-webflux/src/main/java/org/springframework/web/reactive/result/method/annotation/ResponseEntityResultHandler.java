@@ -137,17 +137,17 @@ public class ResponseEntityResultHandler extends AbstractMessageWriterResultHand
 
 		return returnValueMono.flatMap(returnValue -> {
 			HttpEntity<?> httpEntity;
-			if (returnValue instanceof HttpEntity) {
-				httpEntity = (HttpEntity<?>) returnValue;
+			if (returnValue instanceof HttpEntity<?> he) {
+				httpEntity = he;
 			}
 			else if (returnValue instanceof ErrorResponse response) {
-				httpEntity = new ResponseEntity<>(response.getBody(), response.getHeaders(), response.getRawStatusCode());
+				httpEntity = new ResponseEntity<>(response.getBody(), response.getHeaders(), response.getStatusCode());
 			}
 			else if (returnValue instanceof ProblemDetail detail) {
-				httpEntity = new ResponseEntity<>(returnValue, HttpHeaders.EMPTY, detail.getStatus());
+				httpEntity = ResponseEntity.of(detail).build();
 			}
-			else if (returnValue instanceof HttpHeaders) {
-				httpEntity = new ResponseEntity<>((HttpHeaders) returnValue, HttpStatus.OK);
+			else if (returnValue instanceof HttpHeaders headers) {
+				httpEntity = new ResponseEntity<>(headers, HttpStatus.OK);
 			}
 			else {
 				throw new IllegalArgumentException(
@@ -159,11 +159,17 @@ public class ResponseEntityResultHandler extends AbstractMessageWriterResultHand
 					URI path = URI.create(exchange.getRequest().getPath().value());
 					detail.setInstance(path);
 				}
+				if (logger.isWarnEnabled() && httpEntity instanceof ResponseEntity<?> responseEntity) {
+					if (responseEntity.getStatusCode().value() != detail.getStatus()) {
+						logger.warn(actualParameter.getExecutable().toGenericString() +
+								" returned ResponseEntity: " + responseEntity + ", but its status" +
+								" doesn't match the ProblemDetail status: " + detail.getStatus());
+					}
+				}
 			}
 
-			if (httpEntity instanceof ResponseEntity) {
-				exchange.getResponse().setRawStatusCode(
-						((ResponseEntity<?>) httpEntity).getStatusCodeValue());
+			if (httpEntity instanceof ResponseEntity<?> responseEntity) {
+				exchange.getResponse().setStatusCode(responseEntity.getStatusCode());
 			}
 
 			HttpHeaders entityHeaders = httpEntity.getHeaders();

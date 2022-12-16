@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,9 +29,8 @@ import reactor.core.publisher.Mono;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DataBufferUtils;
-import org.springframework.core.io.buffer.PooledDataBuffer;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseCookie;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
@@ -62,7 +61,7 @@ public abstract class AbstractServerHttpResponse implements ServerHttpResponse {
 	private final DataBufferFactory dataBufferFactory;
 
 	@Nullable
-	private Integer statusCode;
+	private HttpStatusCode statusCode;
 
 	private final HttpHeaders headers;
 
@@ -95,37 +94,32 @@ public abstract class AbstractServerHttpResponse implements ServerHttpResponse {
 	}
 
 	@Override
-	public boolean setStatusCode(@Nullable HttpStatus status) {
+	public boolean setStatusCode(@Nullable HttpStatusCode status) {
 		if (this.state.get() == State.COMMITTED) {
 			return false;
 		}
 		else {
-			this.statusCode = (status != null ? status.value() : null);
+			this.statusCode = status;
 			return true;
 		}
 	}
 
 	@Override
 	@Nullable
-	public HttpStatus getStatusCode() {
-		return (this.statusCode != null ? HttpStatus.resolve(this.statusCode) : null);
+	public HttpStatusCode getStatusCode() {
+		return this.statusCode;
 	}
 
 	@Override
 	public boolean setRawStatusCode(@Nullable Integer statusCode) {
-		if (this.state.get() == State.COMMITTED) {
-			return false;
-		}
-		else {
-			this.statusCode = statusCode;
-			return true;
-		}
+		return setStatusCode(statusCode != null ? HttpStatusCode.valueOf(statusCode) : null);
 	}
 
+	@Deprecated
 	@Override
 	@Nullable
 	public Integer getRawStatusCode() {
-		return this.statusCode;
+		return (this.statusCode != null ? this.statusCode.value() : null);
 	}
 
 	@Override
@@ -195,7 +189,7 @@ public abstract class AbstractServerHttpResponse implements ServerHttpResponse {
 									try {
 										return writeWithInternal(Mono.fromCallable(() -> buffer)
 												.doOnSubscribe(s -> subscribed.set(true))
-												.doOnDiscard(PooledDataBuffer.class, DataBufferUtils::release));
+												.doOnDiscard(DataBuffer.class, DataBufferUtils::release));
 									}
 									catch (Throwable ex) {
 										return Mono.error(ex);
@@ -209,7 +203,7 @@ public abstract class AbstractServerHttpResponse implements ServerHttpResponse {
 								});
 					})
 					.doOnError(t -> getHeaders().clearContentHeaders())
-					.doOnDiscard(PooledDataBuffer.class, DataBufferUtils::release);
+					.doOnDiscard(DataBuffer.class, DataBufferUtils::release);
 		}
 		else {
 			return new ChannelSendOperator<>(body, inner -> doCommit(() -> writeWithInternal(inner)))
@@ -229,7 +223,7 @@ public abstract class AbstractServerHttpResponse implements ServerHttpResponse {
 	}
 
 	/**
-	 * A variant of {@link #doCommit(Supplier)} for a response without no body.
+	 * A variant of {@link #doCommit(Supplier)} for a response without a body.
 	 * @return a completion publisher
 	 */
 	protected Mono<Void> doCommit() {
@@ -295,12 +289,12 @@ public abstract class AbstractServerHttpResponse implements ServerHttpResponse {
 	protected abstract void applyStatusCode();
 
 	/**
-	 * Invoked when the response is getting committed allowing sub-classes to
+	 * Invoked when the response is getting committed allowing subclasses to
 	 * make apply header values to the underlying response.
-	 * <p>Note that most sub-classes use an {@link HttpHeaders} instance that
+	 * <p>Note that some subclasses use an {@link HttpHeaders} instance that
 	 * wraps an adapter to the native response headers such that changes are
 	 * propagated to the underlying response on the go. That means this callback
-	 * is typically not used other than for specialized updates such as setting
+	 * might not be used other than for specialized updates such as setting
 	 * the contentType or characterEncoding fields in a Servlet response.
 	 */
 	protected abstract void applyHeaders();
@@ -312,7 +306,7 @@ public abstract class AbstractServerHttpResponse implements ServerHttpResponse {
 	protected abstract void applyCookies();
 
 	/**
-	 * Allow sub-classes to associate a hint with the data buffer if it is a
+	 * Allow subclasses to associate a hint with the data buffer if it is a
 	 * pooled buffer and supports leak tracking.
 	 * @param buffer the buffer to attach a hint to
 	 * @since 5.3.2

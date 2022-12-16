@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseCookie;
 import org.springframework.lang.Nullable;
 import org.springframework.util.CollectionUtils;
@@ -80,13 +80,8 @@ class JdkClientHttpResponse implements ClientHttpResponse {
 
 
 	@Override
-	public HttpStatus getStatusCode() {
-		return HttpStatus.valueOf(this.response.statusCode());
-	}
-
-	@Override
-	public int getRawStatusCode() {
-		return this.response.statusCode();
+	public HttpStatusCode getStatusCode() {
+		return HttpStatusCode.valueOf(this.response.statusCode());
 	}
 
 	@Override

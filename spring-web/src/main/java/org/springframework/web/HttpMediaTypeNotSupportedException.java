@@ -16,11 +16,13 @@
 
 package org.springframework.web;
 
+import java.util.Collections;
 import java.util.List;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.lang.Nullable;
 import org.springframework.util.CollectionUtils;
@@ -36,6 +38,10 @@ import org.springframework.util.CollectionUtils;
 @SuppressWarnings("serial")
 public class HttpMediaTypeNotSupportedException extends HttpMediaTypeException {
 
+	private static final String PARSE_ERROR_DETAIL_CODE =
+			ErrorResponse.getDefaultDetailMessageCode(HttpMediaTypeNotSupportedException.class, "parseError");
+
+
 	@Nullable
 	private final MediaType contentType;
 
@@ -48,7 +54,7 @@ public class HttpMediaTypeNotSupportedException extends HttpMediaTypeException {
 	 * @param message the exception message
 	 */
 	public HttpMediaTypeNotSupportedException(String message) {
-		super(message);
+		super(message, Collections.emptyList(), PARSE_ERROR_DETAIL_CODE, null);
 		this.contentType = null;
 		this.httpMethod = null;
 		getBody().setDetail("Could not parse Content-Type.");
@@ -88,7 +94,7 @@ public class HttpMediaTypeNotSupportedException extends HttpMediaTypeException {
 	public HttpMediaTypeNotSupportedException(@Nullable MediaType contentType,
 			List<MediaType> supportedMediaTypes, @Nullable HttpMethod httpMethod, String message) {
 
-		super(message, supportedMediaTypes);
+		super(message, supportedMediaTypes, null, new Object[] {contentType, supportedMediaTypes});
 		this.contentType = contentType;
 		this.httpMethod = httpMethod;
 		getBody().setDetail("Content-Type '" + this.contentType + "' is not supported.");
@@ -104,8 +110,8 @@ public class HttpMediaTypeNotSupportedException extends HttpMediaTypeException {
 	}
 
 	@Override
-	public int getRawStatusCode() {
-		return HttpStatus.UNSUPPORTED_MEDIA_TYPE.value();
+	public HttpStatusCode getStatusCode() {
+		return HttpStatus.UNSUPPORTED_MEDIA_TYPE;
 	}
 
 	@Override

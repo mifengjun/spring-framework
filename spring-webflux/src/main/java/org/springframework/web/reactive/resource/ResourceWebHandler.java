@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -359,7 +358,7 @@ public class ResourceWebHandler implements WebHandler, InitializingBean {
 		}
 
 		if (isOptimizeLocations()) {
-			result = result.stream().filter(Resource::exists).collect(Collectors.toList());
+			result = result.stream().filter(Resource::exists).toList();
 		}
 
 		this.locationsToUse.clear();
@@ -438,10 +437,17 @@ public class ResourceWebHandler implements WebHandler, InitializingBean {
 						// Content phase
 						ResourceHttpMessageWriter writer = getResourceHttpMessageWriter();
 						Assert.state(writer != null, "No ResourceHttpMessageWriter");
-						return writer.write(Mono.just(resource),
-								null, ResolvableType.forClass(Resource.class), mediaType,
-								exchange.getRequest(), exchange.getResponse(),
-								Hints.from(Hints.LOG_PREFIX_HINT, exchange.getLogPrefix()));
+						if (HttpMethod.HEAD == httpMethod) {
+							writer.addHeaders(exchange.getResponse(), resource, mediaType,
+									Hints.from(Hints.LOG_PREFIX_HINT, exchange.getLogPrefix()));
+							return exchange.getResponse().setComplete();
+						}
+						else {
+							return writer.write(Mono.just(resource),
+									null, ResolvableType.forClass(Resource.class), mediaType,
+									exchange.getRequest(), exchange.getResponse(),
+									Hints.from(Hints.LOG_PREFIX_HINT, exchange.getLogPrefix()));
+						}
 					}
 					catch (IOException ex) {
 						return Mono.error(ex);

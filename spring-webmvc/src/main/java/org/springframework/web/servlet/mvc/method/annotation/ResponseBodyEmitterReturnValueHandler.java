@@ -48,7 +48,7 @@ import org.springframework.web.method.support.HandlerMethodReturnValueHandler;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
 /**
- * Handler for return values of type {@link ResponseBodyEmitter} and sub-classes
+ * Handler for return values of type {@link ResponseBodyEmitter} and subclasses
  * such as {@link SseEmitter} including the same types wrapped with
  * {@link ResponseEntity}.
  *
@@ -130,9 +130,8 @@ public class ResponseBodyEmitterReturnValueHandler implements HandlerMethodRetur
 		Assert.state(response != null, "No HttpServletResponse");
 		ServerHttpResponse outputMessage = new ServletServerHttpResponse(response);
 
-		if (returnValue instanceof ResponseEntity) {
-			ResponseEntity<?> responseEntity = (ResponseEntity<?>) returnValue;
-			response.setStatus(responseEntity.getStatusCodeValue());
+		if (returnValue instanceof ResponseEntity<?> responseEntity) {
+			response.setStatus(responseEntity.getStatusCode().value());
 			outputMessage.getHeaders().putAll(responseEntity.getHeaders());
 			returnValue = responseEntity.getBody();
 			returnType = returnType.nested();

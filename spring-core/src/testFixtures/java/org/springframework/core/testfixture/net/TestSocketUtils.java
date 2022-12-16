@@ -16,31 +16,27 @@
 
 package org.springframework.core.testfixture.net;
 
-import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.util.Random;
 
 import javax.net.ServerSocketFactory;
 
-import org.springframework.util.Assert;
-
 /**
- * Removed from spring-core and introduced as an internal test utility in
- * spring-context in Spring Framework 6.0.
+ * Simple utility for finding available TCP ports on {@code localhost} for use in
+ * integration testing scenarios.
  *
- * <p>Simple utility methods for working with network sockets &mdash; for example,
- * for finding available ports on {@code localhost}.
- *
- * <p>Within this class, a TCP port refers to a port for a {@link ServerSocket};
- * whereas, a UDP port refers to a port for a {@link DatagramSocket}.
+ * <p>{@code SocketUtils} was removed from the public API in {@code spring-core}
+ * in Spring Framework 6.0 and reintroduced as {@code TestSocketUtils}, which is
+ * made available to all tests in Spring Framework's test suite as a Gradle
+ * <em>test fixture</em>.
  *
  * <p>{@code SocketUtils} was introduced in Spring Framework 4.0, primarily to
  * assist in writing integration tests which start an external server on an
  * available random port. However, these utilities make no guarantee about the
  * subsequent availability of a given port and are therefore unreliable. Instead
- * of using {@code SocketUtils} to find an available local port for a server, it
- * is recommended that you rely on a server's ability to start on a random port
+ * of using {@code TestSocketUtils} to find an available local port for a server,
+ * it is recommended that you rely on a server's ability to start on a random port
  * that it selects or is assigned by the operating system. To interact with that
  * server, you should query the server for the port it is currently using.
  *
@@ -49,59 +45,42 @@ import org.springframework.util.Assert;
  * @author Arjen Poutsma
  * @author Gunnar Hillert
  * @author Gary Russell
- * @since 4.0
+ * @since 6.0
  */
-public class TestSocketUtils {
+public abstract class TestSocketUtils {
 
 	/**
-	 * The default minimum value for port ranges used when finding an available
-	 * socket port.
+	 * The minimum value for port ranges used when finding an available TCP port.
 	 */
 	private static final int PORT_RANGE_MIN = 1024;
 
 	/**
-	 * The default maximum value for port ranges used when finding an available
-	 * socket port.
+	 * The maximum value for port ranges used when finding an available TCP port.
 	 */
 	private static final int PORT_RANGE_MAX = 65535;
 
+	private static final int PORT_RANGE = PORT_RANGE_MAX - PORT_RANGE_MIN;
+
+	private static final int MAX_ATTEMPTS = 1_000;
 
 	private static final Random random = new Random(System.nanoTime());
 
 
 	/**
-	 * Find an available TCP port randomly selected from the range
-	 * [{@value #PORT_RANGE_MIN}, {@value #PORT_RANGE_MAX}].
+	 * Find an available TCP port randomly selected from the range [1024, 65535].
 	 * @return an available TCP port number
 	 * @throws IllegalStateException if no available port could be found
 	 */
 	public static int findAvailableTcpPort() {
-		return findAvailablePort(PORT_RANGE_MIN, PORT_RANGE_MAX);
-	}
-
-	/**
-	 * Find an available port for this {@code SocketType}, randomly selected
-	 * from the range [{@code minPort}, {@code maxPort}].
-	 * @param minPort the minimum port number
-	 * @param maxPort the maximum port number
-	 * @return an available port number for this socket type
-	 * @throws IllegalStateException if no available port could be found
-	 */
-	private static int findAvailablePort(int minPort, int maxPort) {
-		Assert.isTrue(minPort > 0, "'minPort' must be greater than 0");
-		Assert.isTrue(maxPort >= minPort, "'maxPort' must be greater than or equal to 'minPort'");
-		Assert.isTrue(maxPort <= PORT_RANGE_MAX, "'maxPort' must be less than or equal to " + PORT_RANGE_MAX);
-
-		int portRange = maxPort - minPort;
 		int candidatePort;
 		int searchCounter = 0;
 		do {
-			if (searchCounter > portRange) {
+			if (searchCounter > MAX_ATTEMPTS) {
 				throw new IllegalStateException(String.format(
 						"Could not find an available TCP port in the range [%d, %d] after %d attempts",
-						minPort, maxPort, searchCounter));
+						PORT_RANGE_MIN, PORT_RANGE_MAX, MAX_ATTEMPTS));
 			}
-			candidatePort = findRandomPort(minPort, maxPort);
+			candidatePort = PORT_RANGE_MIN + random.nextInt(PORT_RANGE + 1);
 			searchCounter++;
 		}
 		while (!isPortAvailable(candidatePort));
@@ -110,20 +89,7 @@ public class TestSocketUtils {
 	}
 
 	/**
-	 * Find a pseudo-random port number within the range
-	 * [{@code minPort}, {@code maxPort}].
-	 * @param minPort the minimum port number
-	 * @param maxPort the maximum port number
-	 * @return a random port number within the specified range
-	 */
-	private static int findRandomPort(int minPort, int maxPort) {
-		int portRange = maxPort - minPort;
-		return minPort + random.nextInt(portRange + 1);
-	}
-
-	/**
-	 * Determine if the specified port for this {@code SocketType} is
-	 * currently available on {@code localhost}.
+	 * Determine if the specified TCP port is currently available on {@code localhost}.
 	 */
 	private static boolean isPortAvailable(int port) {
 		try {

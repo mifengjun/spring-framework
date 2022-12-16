@@ -60,14 +60,14 @@ public class AspectMetadata implements Serializable {
 	private final Class<?> aspectClass;
 
 	/**
-	 * AspectJ reflection information (AspectJ 5 / Java 5 specific).
-	 * Re-resolved on deserialization since it isn't serializable itself.
+	 * AspectJ reflection information.
+	 * <p>Re-resolved on deserialization since it isn't serializable itself.
 	 */
 	private transient AjType<?> ajType;
 
 	/**
 	 * Spring AOP pointcut corresponding to the per clause of the
-	 * aspect. Will be the Pointcut.TRUE canonical instance in the
+	 * aspect. Will be the {@code Pointcut.TRUE} canonical instance in the
 	 * case of a singleton, otherwise an AspectJExpressionPointcut.
 	 */
 	private final Pointcut perClausePointcut;

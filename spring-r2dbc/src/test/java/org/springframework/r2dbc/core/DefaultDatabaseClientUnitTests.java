@@ -20,6 +20,7 @@ import java.util.Arrays;
 
 import io.r2dbc.spi.Connection;
 import io.r2dbc.spi.ConnectionFactory;
+import io.r2dbc.spi.Parameters;
 import io.r2dbc.spi.Result;
 import io.r2dbc.spi.Statement;
 import io.r2dbc.spi.test.MockColumnMetadata;
@@ -28,10 +29,8 @@ import io.r2dbc.spi.test.MockRow;
 import io.r2dbc.spi.test.MockRowMetadata;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.reactivestreams.Publisher;
@@ -65,14 +64,14 @@ import static org.mockito.BDDMockito.when;
  * @author Ferdinand Jacobs
  * @author Jens Schauder
  */
-@ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class DefaultDatabaseClientUnitTests {
 
 	@Mock
-	Connection connection;
+	private Connection connection;
 
 	private DatabaseClient.Builder databaseClientBuilder;
+
 
 	@BeforeEach
 	@SuppressWarnings({ "rawtypes", "unchecked" })
@@ -86,6 +85,7 @@ class DefaultDatabaseClientUnitTests {
 				connectionFactory).bindMarkers(BindMarkersFactory.indexed("$", 1));
 	}
 
+
 	@Test
 	void connectionFactoryIsExposed() {
 		ConnectionFactory connectionFactory = mock(ConnectionFactory.class);
@@ -98,7 +98,6 @@ class DefaultDatabaseClientUnitTests {
 	@Test
 	void shouldCloseConnectionOnlyOnce() {
 		DefaultDatabaseClient databaseClient = (DefaultDatabaseClient) databaseClientBuilder.build();
-
 		Flux<Object> flux = databaseClient.inConnectionMany(connection -> Flux.empty());
 
 		flux.subscribe(new CoreSubscriber<Object>() {
@@ -137,43 +136,42 @@ class DefaultDatabaseClientUnitTests {
 		databaseClient.sql("SELECT * FROM table WHERE key = $1").bindNull(0,
 				String.class).then().as(StepVerifier::create).verifyComplete();
 
-		verify(statement).bindNull(0, String.class);
+		verify(statement).bind(0, Parameters.in(String.class));
 
 		databaseClient.sql("SELECT * FROM table WHERE key = $1").bindNull("$1",
 				String.class).then().as(StepVerifier::create).verifyComplete();
 
-		verify(statement).bindNull("$1", String.class);
+		verify(statement).bind("$1", Parameters.in(String.class));
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void executeShouldBindSettableValues() {
 		Statement statement = mockStatementFor("SELECT * FROM table WHERE key = $1");
-
 		DatabaseClient databaseClient = databaseClientBuilder.namedParameters(false).build();
 
 		databaseClient.sql("SELECT * FROM table WHERE key = $1").bind(0,
 				Parameter.empty(String.class)).then().as(
 						StepVerifier::create).verifyComplete();
 
-		verify(statement).bindNull(0, String.class);
+		verify(statement).bind(0, Parameters.in(String.class));
 
 		databaseClient.sql("SELECT * FROM table WHERE key = $1").bind("$1",
 				Parameter.empty(String.class)).then().as(
 						StepVerifier::create).verifyComplete();
 
-		verify(statement).bindNull("$1", String.class);
+		verify(statement).bind("$1", Parameters.in(String.class));
 	}
 
 	@Test
 	void executeShouldBindNamedNullValues() {
-
 		Statement statement = mockStatementFor("SELECT * FROM table WHERE key = $1");
 		DatabaseClient databaseClient = databaseClientBuilder.build();
 
 		databaseClient.sql("SELECT * FROM table WHERE key = :key").bindNull("key",
 				String.class).then().as(StepVerifier::create).verifyComplete();
 
-		verify(statement).bindNull(0, String.class);
+		verify(statement).bind(0, Parameters.in(String.class));
 	}
 
 	@Test
@@ -196,40 +194,38 @@ class DefaultDatabaseClientUnitTests {
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void executeShouldBindValues() {
 		Statement statement = mockStatementFor("SELECT * FROM table WHERE key = $1");
-
 		DatabaseClient databaseClient = databaseClientBuilder.build();
 
 		databaseClient.sql("SELECT * FROM table WHERE key = $1").bind(0,
 				Parameter.from("foo")).then().as(StepVerifier::create).verifyComplete();
 
-		verify(statement).bind(0, "foo");
+		verify(statement).bind(0, Parameters.in("foo"));
 
 		databaseClient.sql("SELECT * FROM table WHERE key = $1").bind("$1",
 				"foo").then().as(StepVerifier::create).verifyComplete();
 
-		verify(statement).bind("$1", "foo");
+		verify(statement).bind("$1", Parameters.in("foo"));
 	}
 
 	@Test
 	void executeShouldBindNamedValuesByIndex() {
-
 		Statement statement = mockStatementFor("SELECT * FROM table WHERE key = $1");
 		DatabaseClient databaseClient = databaseClientBuilder.build();
 
 		databaseClient.sql("SELECT * FROM table WHERE key = :key").bind("key",
 				"foo").then().as(StepVerifier::create).verifyComplete();
 
-		verify(statement).bind(0, "foo");
+		verify(statement).bind(0, Parameters.in("foo"));
 	}
 
 	@Test
 	@SuppressWarnings("unchecked")
 	void rowsUpdatedShouldEmitSingleValue() {
-
 		Result result = mock(Result.class);
-		when(result.getRowsUpdated()).thenReturn(Mono.empty(), Mono.just(2), Flux.just(1, 2, 3));
+		when(result.getRowsUpdated()).thenReturn(Mono.empty(), Mono.just(2L), Flux.just(1L, 2L, 3L));
 		mockStatementFor("DROP TABLE tab;", result);
 
 		DatabaseClient databaseClient = databaseClientBuilder.build();
@@ -355,9 +351,7 @@ class DefaultDatabaseClientUnitTests {
 	@Test
 	void shouldApplyStatementFilterFunctions() {
 		MockResult result = MockResult.builder().build();
-
 		Statement statement = mockStatement(result);
-
 		DatabaseClient databaseClient = databaseClientBuilder.build();
 
 		databaseClient.sql("SELECT").filter(
@@ -376,9 +370,7 @@ class DefaultDatabaseClientUnitTests {
 	@Test
 	void shouldApplySimpleStatementFilterFunctions() {
 		MockResult result = mockSingleColumnEmptyResult();
-
 		Statement statement = mockStatement(result);
-
 		DatabaseClient databaseClient = databaseClientBuilder.build();
 
 		databaseClient.sql("SELECT").filter(
@@ -392,6 +384,7 @@ class DefaultDatabaseClientUnitTests {
 		inOrder.verify(statement).execute();
 		inOrder.verifyNoMoreInteractions();
 	}
+
 
 	private Statement mockStatement() {
 		return mockStatementFor(null, null);
@@ -407,14 +400,10 @@ class DefaultDatabaseClientUnitTests {
 
 	private Statement mockStatementFor(@Nullable String sql, @Nullable Result result) {
 		Statement statement = mock(Statement.class);
-		when(connection.createStatement(sql == null ? anyString() : eq(sql))).thenReturn(
-				statement);
+		when(connection.createStatement(sql == null ? anyString() : eq(sql))).thenReturn(statement);
 		when(statement.returnGeneratedValues(anyString())).thenReturn(statement);
 		when(statement.returnGeneratedValues()).thenReturn(statement);
-
-		doReturn(result == null ? Mono.empty() : Flux.just(result)).when(
-				statement).execute();
-
+		doReturn(result == null ? Mono.empty() : Flux.just(result)).when(statement).execute();
 		return statement;
 	}
 
@@ -423,7 +412,7 @@ class DefaultDatabaseClientUnitTests {
 	}
 
 	/**
-	 * Mocks a {@link Result} with a single column "name" and a single row if a non null
+	 * Mocks a {@link Result} with a single column "name" and a single row if a non-null
 	 * row is provided.
 	 */
 	private MockResult mockSingleColumnResult(@Nullable MockRow.Builder row) {

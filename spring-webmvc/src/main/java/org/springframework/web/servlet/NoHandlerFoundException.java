@@ -22,6 +22,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.ErrorResponse;
 
@@ -43,7 +44,7 @@ public class NoHandlerFoundException extends ServletException implements ErrorRe
 
 	private final String requestURL;
 
-	private final HttpHeaders headers;
+	private final HttpHeaders requestHeaders;
 
 	private final ProblemDetail body;
 
@@ -58,14 +59,13 @@ public class NoHandlerFoundException extends ServletException implements ErrorRe
 		super("No endpoint " + httpMethod + " " + requestURL + ".");
 		this.httpMethod = httpMethod;
 		this.requestURL = requestURL;
-		this.headers = headers;
-		this.body = ProblemDetail.forRawStatusCode(getRawStatusCode()).withDetail(getMessage());
+		this.requestHeaders = headers;
+		this.body = ProblemDetail.forStatusAndDetail(getStatusCode(), getMessage());
 	}
 
-
 	@Override
-	public int getRawStatusCode() {
-		return HttpStatus.NOT_FOUND.value();
+	public HttpStatusCode getStatusCode() {
+		return HttpStatus.NOT_FOUND;
 	}
 
 	public String getHttpMethod() {
@@ -76,8 +76,23 @@ public class NoHandlerFoundException extends ServletException implements ErrorRe
 		return this.requestURL;
 	}
 
+	/**
+	 * Return headers to use for the response.
+	 * <p><strong>Note:</strong> As of 6.0 this method overlaps with
+	 * {@link ErrorResponse#getHeaders()} and therefore no longer returns request
+	 * headers. Use {@link #getRequestHeaders()} instead for request headers.
+	 */
+	@Override
 	public HttpHeaders getHeaders() {
-		return this.headers;
+		return ErrorResponse.super.getHeaders();
+	}
+
+	/**
+	 * Return the headers of the request.
+	 * @since 6.0.3
+	 */
+	public HttpHeaders getRequestHeaders() {
+		return this.requestHeaders;
 	}
 
 	@Override

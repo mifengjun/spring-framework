@@ -16,26 +16,23 @@
 
 package org.springframework.web;
 
-
 import java.net.URI;
 
-import org.springframework.core.NestedExceptionUtils;
 import org.springframework.core.NestedRuntimeException;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.lang.Nullable;
 
-
 /**
  * {@link RuntimeException} that implements {@link ErrorResponse} to expose
- * an HTTP status, response headers, and a body formatted as an RFC 7808
+ * an HTTP status, response headers, and a body formatted as an RFC 7807
  * {@link ProblemDetail}.
  *
  * <p>The exception can be used as is, or it can be extended as a more specific
  * exception that populates the {@link ProblemDetail#setType(URI) type} or
  * {@link ProblemDetail#setDetail(String) detail} fields, or potentially adds
- * other non-standard fields.
+ * other non-standard properties.
  *
  * @author Rossen Stoyanchev
  * @since 6.0
@@ -43,48 +40,65 @@ import org.springframework.lang.Nullable;
 @SuppressWarnings("serial")
 public class ErrorResponseException extends NestedRuntimeException implements ErrorResponse {
 
-	private final int status;
+	private final HttpStatusCode status;
 
 	private final HttpHeaders headers = new HttpHeaders();
 
 	private final ProblemDetail body;
 
+	private final String messageDetailCode;
+
+	@Nullable
+	private final Object[] messageDetailArguments;
+
 
 	/**
-	 * Constructor with a well-known {@link HttpStatus}.
+	 * Constructor with an {@link HttpStatusCode}.
 	 */
-	public ErrorResponseException(HttpStatus status) {
+	public ErrorResponseException(HttpStatusCode status) {
 		this(status, null);
 	}
 
 	/**
-	 * Constructor with a well-known {@link HttpStatus} and an optional cause.
+	 * Constructor with an {@link HttpStatusCode} and an optional cause.
 	 */
-	public ErrorResponseException(HttpStatus status, @Nullable Throwable cause) {
-		this(status.value(), cause);
-	}
-
-	/**
-	 * Constructor that accepts any status value, possibly not resolvable as an
-	 * {@link HttpStatus} enum, and an optional cause.
-	 */
-	public ErrorResponseException(int status, @Nullable Throwable cause) {
-		this(status, ProblemDetail.forRawStatusCode(status), cause);
+	public ErrorResponseException(HttpStatusCode status, @Nullable Throwable cause) {
+		this(status, ProblemDetail.forStatus(status), cause);
 	}
 
 	/**
 	 * Constructor with a given {@link ProblemDetail} instance, possibly a
 	 * subclass of {@code ProblemDetail} with extended fields.
 	 */
-	public ErrorResponseException(int status, ProblemDetail body, @Nullable Throwable cause) {
+	public ErrorResponseException(HttpStatusCode status, ProblemDetail body, @Nullable Throwable cause) {
+		this(status, body, cause, null, null);
+	}
+
+	/**
+	 * Constructor with a given {@link ProblemDetail}, and a
+	 * {@link org.springframework.context.MessageSource} code and arguments to
+	 * resolve the detail message with.
+	 * @since 6.0
+	 */
+	public ErrorResponseException(
+			HttpStatusCode status, ProblemDetail body, @Nullable Throwable cause,
+			@Nullable String messageDetailCode, @Nullable Object[] messageDetailArguments) {
+
 		super(null, cause);
 		this.status = status;
 		this.body = body;
+		this.messageDetailCode = initMessageDetailCode(messageDetailCode);
+		this.messageDetailArguments = messageDetailArguments;
+	}
+
+	private String initMessageDetailCode(@Nullable String messageDetailCode) {
+		return (messageDetailCode != null ?
+				messageDetailCode : ErrorResponse.getDefaultDetailMessageCode(getClass(), null));
 	}
 
 
 	@Override
-	public int getRawStatusCode() {
+	public HttpStatusCode getStatusCode() {
 		return this.status;
 	}
 
@@ -146,11 +160,18 @@ public class ErrorResponseException extends NestedRuntimeException implements Er
 	}
 
 	@Override
+	public String getDetailMessageCode() {
+		return this.messageDetailCode;
+	}
+
+	@Override
+	public Object[] getDetailMessageArguments() {
+		return this.messageDetailArguments;
+	}
+
+	@Override
 	public String getMessage() {
-		HttpStatus httpStatus = HttpStatus.resolve(this.status);
-		String message = (httpStatus != null ? httpStatus : String.valueOf(this.status)) +
-				(!this.headers.isEmpty() ? ", headers=" + this.headers : "") + ", " + this.body;
-		return NestedExceptionUtils.buildMessage(message, getCause());
+		return this.status + (!this.headers.isEmpty() ? ", headers=" + this.headers : "") + ", " + this.body;
 	}
 
 }
